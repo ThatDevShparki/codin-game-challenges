@@ -71,6 +71,7 @@ The game stops when it detects progress can no longer be made or after _100_ tur
     - `WALL` for a wall
     - `ROOT` for a ROOT type organ
     - `BASIC` for a BASIC type organ
+    - `HARVESTER` for a HARVESTER type organ
     - `A` for an A protein source
   - `owner`:
     - `1` if you are the owner of this organ

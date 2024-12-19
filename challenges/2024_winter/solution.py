@@ -49,7 +49,11 @@ class Game:
             assert closest_distance is not None
 
             proteins.append((entity, closest_organ, closest_distance))
+
         proteins = sorted(proteins, key=lambda p: p[-1])  # Sort by distance
+        if not proteins:
+            debug("NO PROTEIN AVAILABLE :(")
+            return []
 
         next_protein, closest_organ, closest_distance = proteins.pop(0)
         if closest_distance > self.state.player.protein_a:
@@ -116,8 +120,7 @@ class Game:
                     y=int(_y),
                     kind=EntityKind(_kind),
                     owner=None if _owner == "-1" else Contestant(_owner),
-                    # direction=Direction(_organ_dir),
-                    direction=_organ_dir,
+                    direction=Direction(_organ_dir),
                     root_uid=(None if _organ_root_id == "-1" else int(_organ_root_id)),
                     parent_uid=(
                         None if _organ_parent_id == "-1" else int(_organ_parent_id)
@@ -196,8 +199,7 @@ class Entity(NamedTuple):
     y: int
     kind: EntityKind
     owner: Contestant | None
-    # direction: Direction
-    direction: str
+    direction: Direction
     parent_uid: int | None
     parent: Entity | None
     root_uid: int | None
@@ -208,6 +210,7 @@ class EntityKind(Enum):
     ROOT = "ROOT"
     WALL = "WALL"
     BASIC = "BASIC"
+    HARVESTER = "HARVESTER"
     PROTEIN_A = "A"
     PROTEIN_B = "B"
     PROTEIN_C = "C"
@@ -225,6 +228,7 @@ class Contestant(Enum):
 
 
 class Direction(Enum):
+    NONE = "X"
     NORTH = "N"
     SOUTH = "W"
     EAST = "E"
