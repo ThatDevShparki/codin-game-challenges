@@ -12,9 +12,51 @@ class Game:
     outputs: list[GameOutput]
 
     def update(self, entities: list[Entity]) -> list[GameOutput]:
+        # Game state is updated before update every turn
+        assert self.state is not None
+
         debug(self.state)
 
-        return []
+        # Construct organism
+        debug("organism")
+        organism: list[Entity] = []
+        for entity in entities:
+            if entity.kind in EntityKind.ORGANISM and entity.owner == Contestant.PLAYER:
+                organism.append(entity)
+                debug(entity)
+
+        # Locate all proteins and get the closest distance
+        debug("proteins")
+        proteins: list[
+            tuple[Entity, Entity, int]
+        ] = []  # protein, closest organ, distance
+        for entity in entities:
+            if entity.kind != EntityKind.PROTEIN_A or entity.owner:
+                continue
+
+            closest_organ: Entity | None = None
+            closest_distance: int | None = None
+            for organ in organism:
+                o_distance = taxi_distance(organ.x, organ.y, entity.x, entity.y)
+                if closest_distance is None or o_distance < closest_distance:
+                    closest_distance = o_distance
+                    closest_organ = organ
+
+            debug(entity, closest_organ, closest_distance)
+
+            # We know *something* is closest because we have atleast one organ
+            assert closest_organ is not None
+            assert closest_distance is not None
+
+            proteins.append((entity, closest_organ, closest_distance))
+        proteins = sorted(proteins, key=lambda p: p[-1])  # Sort by distance
+
+        next_protein, closest_organ, closest_distance = proteins.pop(0)
+        if closest_distance > self.state.player.protein_a:
+            debug("NO PROTEIN AVAILABLE :(")
+            return []
+
+        return [Grow(EntityKind.BASIC, next_protein.x, next_protein.y, closest_organ)]
 
     """ Game loop methods """
 
@@ -171,6 +213,11 @@ class EntityKind(Enum):
     PROTEIN_C = "C"
     PROTEIN_D = "D"
 
+    @classmethod
+    @property
+    def ORGANISM(cls) -> list[EntityKind]:
+        return [cls.ROOT, cls.BASIC]
+
 
 class Contestant(Enum):
     PLAYER = "1"
@@ -187,8 +234,11 @@ class Direction(Enum):
 """ Common utility methods """
 
 
-def Grow(uid: int, x: int, y: int, kind: EntityKind) -> GameOutput:
-    return GameOutput(command=GameCommand.GROW, params=[str(x), str(y), kind.value])
+def Grow(kind: EntityKind, x: int, y: int, parent: Entity) -> GameOutput:
+    return GameOutput(
+        command=GameCommand.GROW,
+        params=[str(parent.uid), str(x), str(y), kind.value],
+    )
 
 
 def Wait() -> GameOutput:
@@ -197,6 +247,10 @@ def Wait() -> GameOutput:
 
 def debug(*args: Any, **kwargs: Any) -> None:
     print(*args, **kwargs, file=sys.stderr, flush=True)
+
+
+def taxi_distance(x1: int, y1: int, x2: int, y2: int) -> int:
+    return abs(y2 - y1) + abs(x2 - x1)
 
 
 """ Game loop """
