@@ -97,6 +97,8 @@ class Game:
                         )
                     ]
 
+        return []
+
     """ Game loop methods """
 
     def do_game_update(self) -> None:
