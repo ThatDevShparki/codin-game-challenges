@@ -1,2 +1,3 @@
 # codin-game-challenges
-CondinGame seasonal challenges solutions
+
+CodinGame seasonal challenges solutions
