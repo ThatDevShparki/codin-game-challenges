@@ -8,137 +8,161 @@ from typing import Any, NamedTuple
 class Game:
     width: int
     height: int
+
+    turn: int
     state: GameState | None
+    history: list[GameState]
     outputs: list[GameOutput]
 
-    def update(self, entities: list[Entity]) -> list[GameOutput]:
-        # Game state is updated before update every turn
-        assert self.state is not None
+    """ Game methods """
 
-        debug(self.state)
-
-        # Cache all entities and special entities such as organism and walls
-        entity_map: dict[tuple[int, int], Entity] = {}
-        organism: dict[tuple[int, int], Entity] = {}
-        walls: dict[tuple[int, int], Entity] = {}
-        proteins: dict[tuple[int, int], Entity] = {}
+    def update(
+        self,
+        player: ContestantState,
+        opponent: ContestantState,
+        entities: list[Entity],
+    ) -> None:
+        # Step 1: Cache all entities by Coord, and track organisms
+        entities_by_coord: dict[Coord, Entity] = {}
+        organisms: dict[Contestant, Entity] = {}
         for entity in entities:
-            coord = (entity.x, entity.y)
-            entity_map[coord] = entity
-            if (
-                entity.kind in EntityKind.ORGANISMS
-                and entity.owner == Contestant.PLAYER
-            ):
-                organism[coord] = entity
-            if entity.kind == EntityKind.WALL:
-                walls[coord] = entity
-            if entity.kind in EntityKind.PROTEINS:
-                proteins[coord] = entity
+            # Cache entities by Coord
+            entities_by_coord[(entity.x, entity.y)] = entity
 
-        # Groom through proteins and find available points of entry for harvesters
-        debug("Protein ports:")
-        protein_ports: list[
-            tuple[tuple[int, int], Direction, Entity, int]
-        ] = []  # coord, direction, closest organ, and distance
-        # Only do maths if we can purchase port
-        if self.state.player.protein_c >= 1 and self.state.player.protein_d >= 1:
-            for coord, entity in proteins.items():
-                for neighbor, direction in neighborhood(
-                    *coord, width=self.width, height=self.height
-                ):
-                    if neighbor not in entity_map:
-                        # Let's calculate the distance and closest organ
-                        closest_organ: Entity | None = None
-                        closest_distance: int | None = None
-                        for organ in organism.values():
-                            o_distance = taxi_distance(
-                                organ.x, organ.y, neighbor[0], neighbor[1]
-                            )
-                            if (
-                                closest_distance is None
-                                or o_distance < closest_distance
-                            ):
-                                closest_distance = o_distance
-                                closest_organ = organ
+            # Track the top-level organisms
+            if entity.kind == EntityKind.ROOT and entity.owner:
+                organisms[entity.owner] = entity
 
-                        # We know *something* is closest because we have atleast one organ
-                        assert closest_organ is not None
-                        assert closest_distance is not None
+        # Organize map as a graph
+        # # Game state is updated before update every turn
+        # assert self.state is not None
 
-                        protein_ports.append(
-                            (
-                                neighbor,
-                                direction.reverse(),  # Use the direction to point Harvster in
-                                closest_organ,
-                                closest_distance,
-                            )
-                        )
+        # # Cache all entities and special entities such as organism and walls
+        # entity_map: dict[tuple[int, int], Entity] = {}
+        # organism: dict[tuple[int, int], Entity] = {}
+        # walls: dict[tuple[int, int], Entity] = {}
+        # proteins: dict[tuple[int, int], Entity] = {}
+        # for entity in entities:
+        #     coord = (entity.x, entity.y)
+        #     entity_map[coord] = entity
+        #     if (
+        #         entity.kind in EntityKind.ORGANISMS
+        #         and entity.owner == Contestant.PLAYER
+        #     ):
+        #         organism[coord] = entity
+        #     if entity.kind == EntityKind.WALL:
+        #         walls[coord] = entity
+        #     if entity.kind in EntityKind.PROTEINS:
+        #         proteins[coord] = entity
 
-            protein_ports = sorted(protein_ports, key=lambda p: p[-1])
-            coord, direction, entity, distance = protein_ports.pop(0)
-            if distance == 1:
-                return [
-                    Grow(EntityKind.HARVESTER, coord[0], coord[1], direction, entity)
-                ]
-            else:
-                return [
-                    Grow(EntityKind.BASIC, coord[0], coord[1], Direction.NORTH, entity)
-                ]
+        # # Groom through proteins and find available points of entry for harvesters
+        # protein_ports: list[
+        #     tuple[tuple[int, int], Direction, Entity, int]
+        # ] = []  # coord, direction, closest organ, and distance
+        # # Only do maths if we can purchase port
+        # if self.state.player.protein_c >= 1 and self.state.player.protein_d >= 1:
+        #     for coord, entity in proteins.items():
+        #         for neighbor, direction in neighborhood(
+        #             *coord, width=self.width, height=self.height
+        #         ):
+        #             if neighbor not in entity_map:
+        #                 # Let's calculate the distance and closest organ
+        #                 closest_organ: Entity | None = None
+        #                 closest_distance: int | None = None
+        #                 for organ in organism.values():
+        #                     o_distance = taxi_distance(
+        #                         organ.x, organ.y, neighbor[0], neighbor[1]
+        #                     )
+        #                     if (
+        #                         closest_distance is None
+        #                         or o_distance < closest_distance
+        #                     ):
+        #                         closest_distance = o_distance
+        #                         closest_organ = organ
 
-        debug("No available resources for Harvesters- growing in best direction")
-        for organ in organism.values():
-            for coord, _ in neighborhood(
-                x=organ.x, y=organ.y, width=self.width, height=self.height
-            ):
-                if coord not in entity_map:
-                    return [
-                        Grow(
-                            EntityKind.BASIC, coord[0], coord[1], Direction.NORTH, organ
-                        )
-                    ]
+        #                 # We know *something* is closest because we have atleast one organ
+        #                 assert closest_organ is not None
+        #                 assert closest_distance is not None
 
-        return []
+        #                 protein_ports.append(
+        #                     (
+        #                         neighbor,
+        #                         direction.reverse(),  # Use the direction to point Harvster in
+        #                         closest_organ,
+        #                         closest_distance,
+        #                     )
+        #                 )
+
+        #     protein_ports = sorted(protein_ports, key=lambda p: p[-1])
+        #     coord, direction, entity, distance = protein_ports.pop(0)
+        #     if distance == 1:
+        #         return [
+        #             Grow(EntityKind.HARVESTER, coord[0], coord[1], direction, entity)
+        #         ]
+        #     else:
+        #         return [
+        #             Grow(EntityKind.BASIC, coord[0], coord[1], Direction.NORTH, entity)
+        #         ]
+
+        # debug("No available resources for Harvesters- growing in best direction")
+        # for organ in organism.values():
+        #     for coord, _ in neighborhood(
+        #         x=organ.x, y=organ.y, width=self.width, height=self.height
+        #     ):
+        #         if coord not in entity_map:
+        #             return [
+        #                 Grow(
+        #                     EntityKind.BASIC, coord[0], coord[1], Direction.NORTH, organ
+        #                 )
+        #             ]
+
+    def output(self, output: GameOutput) -> None:
+        self.outputs.append(output)
 
     """ Game loop methods """
 
     def do_game_update(self) -> None:
-        input_turn = self.read_game_inputs()
-        self.state = input_turn.state
+        state = self.read_game_state()
 
-        outputs = self.update(entities=input_turn.entities)
+        self.turn += 1
+        self.outputs = []
+        self.state = state
+        self.history.append(state)
 
-        # This is for debugging
-        while len(outputs) != input_turn.actions:
+        self.update(
+            player=state.player,
+            opponent=state.opponent,
+            entities=state.entities,
+        )
+
+        # This is to ensure that there are valid outputs
+        while len(self.outputs) != state.actions:
             debug("Not enough actions, appending WAIT")
-            outputs.append(Wait())
+            self.output(Wait())
 
-        self.print_game_outputs(outputs)
+        self.process_game_outputs(self.outputs)
 
     """ Factory methods """
 
     def __init__(self, width: int, height: int) -> None:
         self.width = width
         self.height = height
+
+        self.turn = 0
         self.state = None
+        self.history = []
         self.outputs = []
 
     @classmethod
-    def initialize(cls) -> Game:
-        game_input_init = cls.read_game_init()
-        return Game(
-            width=game_input_init.width,
-            height=game_input_init.height,
-        )
+    def from_input(cls) -> Game:
+        width, height = [int(i) for i in input().split()]
+        return Game(width=width, height=height)
 
     """ Helper methods """
 
     @staticmethod
-    def read_game_init() -> GameInputInit:
-        width, height = [int(i) for i in input().split()]
-        return GameInputInit(width=width, height=height)
-
-    @staticmethod
-    def read_game_inputs() -> GameInputTurn:
+    def read_game_state() -> GameState:
+        # Read entities and cache by uid without refrence to root or parent
         entities: list[Entity] = []
         for _ in range(int(input())):
             (
@@ -151,6 +175,7 @@ class Game:
                 _organ_parent_id,
                 _organ_root_id,
             ) = input().strip().split()
+
             entities.append(
                 Entity(
                     uid=int(_organ_id),
@@ -163,8 +188,6 @@ class Game:
                     parent_uid=(
                         None if _organ_parent_id == "-1" else int(_organ_parent_id)
                     ),
-                    root=None,
-                    parent=None,
                 )
             )
 
@@ -180,14 +203,15 @@ class Game:
 
         required_actions_count = int(input())
 
-        return GameInputTurn(
+        return GameState(
+            player=player_state,
+            opponent=opponent_state,
             entities=entities,
-            state=GameState(player=player_state, opponent=opponent_state),
             actions=required_actions_count,
         )
 
     @staticmethod
-    def print_game_outputs(outputs: list[GameOutput]) -> None:
+    def process_game_outputs(outputs: list[GameOutput]) -> None:
         for output in outputs:
             output_str = " ".join(
                 [output.command.value, *list(map(str, output.params))]
@@ -196,6 +220,8 @@ class Game:
 
 
 """ Types"""
+
+Coord = tuple[int, int]
 
 
 class GameOutput(NamedTuple):
@@ -208,20 +234,11 @@ class GameCommand(Enum):
     WAIT = "WAIT"
 
 
-class GameInputInit(NamedTuple):
-    width: int
-    height: int
-
-
-class GameInputTurn(NamedTuple):
-    entities: list[Entity]
-    state: GameState
-    actions: int
-
-
 class GameState(NamedTuple):
     player: ContestantState
     opponent: ContestantState
+    entities: list[Entity]
+    actions: int
 
 
 class ContestantState(NamedTuple):
@@ -239,9 +256,33 @@ class Entity(NamedTuple):
     owner: Contestant | None
     direction: Direction
     parent_uid: int | None
-    parent: Entity | None
     root_uid: int | None
-    root: Entity | None
+
+    """ factory methods """
+
+    def update_parent(self, parent: Entity) -> Entity:
+        return Entity(
+            uid=self.uid,
+            x=self.x,
+            y=self.y,
+            kind=self.kind,
+            owner=self.owner,
+            direction=self.direction,
+            parent=parent,
+            root=self.root,
+        )
+
+    def update_root(self, root: Entity) -> Entity:
+        return Entity(
+            uid=self.uid,
+            x=self.x,
+            y=self.y,
+            kind=self.kind,
+            owner=self.owner,
+            direction=self.direction,
+            parent=self.parent,
+            root=root,
+        )
 
 
 class EntityKind(Enum):
@@ -249,6 +290,7 @@ class EntityKind(Enum):
     WALL = "WALL"
     BASIC = "BASIC"
     HARVESTER = "HARVESTER"
+    TENTACLE = "TENTACLE"
     PROTEIN_A = "A"
     PROTEIN_B = "B"
     PROTEIN_C = "C"
@@ -257,7 +299,7 @@ class EntityKind(Enum):
     @classmethod
     @property
     def ORGANISMS(cls) -> list[EntityKind]:  # type: ignore
-        return [cls.ROOT, cls.BASIC, cls.HARVESTER]
+        return [cls.ROOT, cls.BASIC, cls.HARVESTER, cls.TENTACLE]
 
     @classmethod
     @property
@@ -291,6 +333,35 @@ class Direction(Enum):
         return Direction.NONE
 
 
+class Node(NamedTuple):
+    x: int
+    y: int
+    entity: Entity | None
+
+    meighbor_n: Node | None
+    neighbor_e: Node | None
+    neighbor_s: Node | None
+    neighbor_w: Node | None
+
+
+class Edge(NamedTuple):
+    source: Node
+    target: Node
+    cost: Cost
+    fitness: Fitness
+
+
+class Cost(NamedTuple):
+    a: int
+    b: int
+    c: int
+    d: int
+
+
+class Fitness(NamedTuple):
+    score: int
+
+
 """ Common utility methods """
 
 
@@ -311,26 +382,12 @@ def debug(*args: Any, **kwargs: Any) -> None:
     print(*args, **kwargs, file=sys.stderr, flush=True)
 
 
-def taxi_distance(x1: int, y1: int, x2: int, y2: int) -> int:
-    return abs(y2 - y1) + abs(x2 - x1)
-
-
-def neighborhood(
-    x: int, y: int, width: int, height: int
-) -> list[tuple[tuple[int, int], Direction]]:
-    neighbors: list[tuple[tuple[int, int], Direction]] = [
-        ((x, y - 1), Direction.NORTH),
-        ((x, y + 1), Direction.SOUTH),
-        ((x + 1, y), Direction.EAST),
-        ((x - 1, y), Direction.WEST),
-    ]
-    return list(
-        filter(lambda n: 0 <= n[0][0] < width and 0 <= n[0][1] < height, neighbors)
-    )
+def taxi_distance(p1: Coord, p2: Coord) -> int:
+    return abs(p2[0] - p1[0]) + abs(p2[1] - p1[1])
 
 
 """ Game loop """
 
-game = Game.initialize()
+game = Game.from_input()
 while True:
     game.do_game_update()
