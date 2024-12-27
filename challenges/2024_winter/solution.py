@@ -433,7 +433,7 @@ class Node:
     entity: Entity | None
 
     parent: Node | None = None
-    children: dict[Direction, Node] = field(default_factory=dict)
+    edges: set[Edge] = field(default_factory=set)
 
     @property
     def coord(self) -> Coord:
@@ -445,13 +445,17 @@ class Node:
         y: int,
         entity: Entity | None,
         parent: Node | None = None,
-        children: dict[Direction, Node] | None = None,
+        edges: set[Edge] | None = None,
     ):
         self.x = x
         self.y = y
         self.entity = entity
         self.parent = parent
-        self.children = children or {}
+        self.edges = edges or set()
+
+    def add_child(self, child: Node, cost: Cost, fitness: Fitness) -> None:
+        child.parent = self
+        self.edges.add(Edge(source=self, target=child, cost=cost, fitness=fitness))
 
     def __hash__(self) -> int:
         return hash((self.x, self.y, self.entity))
@@ -462,11 +466,20 @@ class Node:
         return all([self.x == other.x, self.y == other.y, self.entity == other.entity])
 
 
-class Edge(NamedTuple):
+class Edge:
     source: Node
     target: Node
+    strategy: EntityKind | None
     cost: Cost
     fitness: Fitness
+
+    def __init__(
+        self, source: Node, target: Node, cost: Cost, fitness: Fitness
+    ) -> None:
+        self.source = source
+        self.target = target
+        self.cost = cost
+        self.fitness = fitness
 
 
 class Cost(NamedTuple):
@@ -475,9 +488,25 @@ class Cost(NamedTuple):
     c: int
     d: int
 
+    @classmethod
+    def for_entity_kind(cls, kind: EntityKind) -> Cost:
+        if kind == EntityKind.BASIC:
+            return cls(a=1, b=0, c=0, d=0)
+        if kind == EntityKind.HARVESTER:
+            return cls(a=0, b=0, c=1, d=1)
+        if kind == EntityKind.TENTACLE:
+            return cls(a=0, b=1, c=1, d=0)
+        return cls(a=0, b=0, c=0, d=0)
+
 
 class Fitness(NamedTuple):
     score: int
+
+    @classmethod
+    def for_entity_kind(cls, kind: EntityKind) -> Fitness:
+        if kind in EntityKind.ORGANISMS:
+            return cls(score=1)
+        return cls(score=0)
 
 
 """ Common utility methods """
