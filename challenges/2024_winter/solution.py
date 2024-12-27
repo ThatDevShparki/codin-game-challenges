@@ -3,7 +3,8 @@ from __future__ import annotations
 import sys
 from collections import deque
 from enum import Enum
-from typing import Any, NamedTuple
+from typing import Any
+from typing import NamedTuple
 
 
 class Game:
@@ -23,7 +24,9 @@ class Game:
         opponent: ContestantState,
         entities: dict[Coord, Entity],
     ) -> None:
-        debug("Updating...")
+        print(player)
+        print(opponent)
+        print(entities)
 
         """Step 1: BFS graph from root"""
         graph: dict[Coord, Node] = {}
@@ -495,6 +498,7 @@ def taxi_distance(p1: Coord, p2: Coord) -> int:
 
 """ Game loop """
 
-game = Game.from_input()
-while True:
-    game.do_game_update()
+if __name__ == "__main__":
+    game = Game.from_input()
+    while True:
+        game.do_game_update()
