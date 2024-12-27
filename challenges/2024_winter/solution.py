@@ -44,8 +44,12 @@ class Game:
         unvisited_coords.append(player.root.coord)
 
         # Iterate through all neighbors
-        while coord := unvisited_coords.popleft():
+        while unvisited_coords:
+            coord = unvisited_coords.popleft()
+            debug(f"Visiting {coord}")
+
             if coord in visited_coords:
+                debug(" > Already visited")
                 continue
             visited_coords.add(coord)
 
@@ -59,6 +63,8 @@ class Game:
                 if entity and entity.kind == EntityKind.WALL:
                     continue
 
+                debug(" > Neighbour:", nx, ny)
+
                 neighbor_dir = direction.reverse()
                 neighbor_node = Node(
                     x=nx,
@@ -69,10 +75,11 @@ class Game:
                     neighbor_s=(node if neighbor_dir == Direction.SOUTH else None),
                     neighbor_w=(node if neighbor_dir == Direction.WEST else None),
                 )
+                graph[(nx, ny)] = neighbor_node
 
                 node = node.update_neighbor(direction, neighbor_node)
+                debug(" > Updated node:", node)
 
-                graph[(nx, ny)] = neighbor_node
                 unvisited_coords.append((nx, ny))
 
         for coord, node in graph.items():
