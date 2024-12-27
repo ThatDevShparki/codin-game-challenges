@@ -6,10 +6,10 @@ authors = ["ThatDevShparki <shparki@thatdev.io>"]
 readme = "README.md"
 package-mode = false
 
-[tool.ruff]
+[tool.ruff.lint]
 select = ["F", "I"]
 
-[tool.ruff.isort]
+[tool.ruff.lint.isort]
 force-single-line = true
 
 [tool.poetry.dependencies]

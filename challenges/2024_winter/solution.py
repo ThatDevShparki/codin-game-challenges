@@ -436,6 +436,10 @@ class Node(NamedTuple):
     neighbor_s: Node | None
     neighbor_w: Node | None
 
+    @property
+    def coord(self) -> Coord:
+        return (self.x, self.y)
+
     def update_neighbor(self, direction: Direction, node: Node) -> Node:
         return Node(
             x=self.x,
