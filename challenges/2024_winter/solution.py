@@ -435,6 +435,8 @@ class Node:
     parent: Node | None = None
     children: set[Node] = field(default_factory=set)
 
+    strategies: set[Strategy] = field(default_factory=set)
+
     @property
     def coord(self) -> Coord:
         return (self.x, self.y)
@@ -446,12 +448,14 @@ class Node:
         entity: Entity | None,
         parent: Node | None = None,
         children: set[Node] | None = None,
+        strategies: set[Strategy] | None = None,
     ):
         self.x = x
         self.y = y
         self.entity = entity
         self.parent = parent
         self.children = children or set()
+        self.strategies = strategies or set()
 
     def __hash__(self) -> int:
         return hash((self.x, self.y, self.entity))
@@ -462,20 +466,63 @@ class Node:
         return all([self.x == other.x, self.y == other.y, self.entity == other.entity])
 
 
-class Edge:
+class Strategy:
     source: Node
     target: Node
-    strategy: EntityKind | None
+    kind: EntityKind
+    direction: Direction
     cost: Cost
     fitness: Fitness
 
     def __init__(
-        self, source: Node, target: Node, cost: Cost, fitness: Fitness
+        self,
+        source: Node,
+        target: Node,
+        kind: EntityKind,
+        cost: Cost,
+        fitness: Fitness,
+        direction: Direction = Direction.NONE,
     ) -> None:
         self.source = source
         self.target = target
+        self.kind = kind
+        self.direction = direction
         self.cost = cost
         self.fitness = fitness
+
+    def __hash__(self) -> int:
+        return hash((self.source, self.target, self.kind, self.cost, self.fitness))
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, Strategy):
+            return False
+
+        return all(
+            [
+                self.source == other.source,
+                self.target == other.target,
+                self.kind == other.kind,
+                self.cost == other.cost,
+                self.fitness == other.fitness,
+            ]
+        )
+
+    @classmethod
+    def for_entity_kind(
+        cls,
+        source: Node,
+        target: Node,
+        kind: EntityKind,
+        direction: Direction = Direction.NONE,
+    ) -> Strategy:
+        return Strategy(
+            source=source,
+            target=target,
+            kind=kind,
+            cost=Cost.for_entity_kind(kind),
+            fitness=Fitness.for_entity_kind(kind),
+            direction=direction,
+        )
 
 
 class Cost(NamedTuple):
