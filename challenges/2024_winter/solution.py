@@ -434,6 +434,7 @@ class Node:
 
     parent: Node | None = None
     children: set[Node] = field(default_factory=set)
+    features: dict[Direction, Node | None] = field(default_factory=dict)
 
     strategies: set[Strategy] = field(default_factory=set)
 
@@ -449,6 +450,7 @@ class Node:
         parent: Node | None = None,
         children: set[Node] | None = None,
         strategies: set[Strategy] | None = None,
+        features: dict[Direction, Node | None] | None = None,
     ):
         self.x = x
         self.y = y
@@ -456,6 +458,7 @@ class Node:
         self.parent = parent
         self.children = children or set()
         self.strategies = strategies or set()
+        self.features = features or {}
 
     def __hash__(self) -> int:
         return hash((self.x, self.y, self.entity))
