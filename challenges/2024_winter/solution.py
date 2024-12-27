@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import sys
 from collections import deque
+from dataclasses import field
 from enum import Enum
 from typing import Any
 from typing import NamedTuple
@@ -426,30 +427,39 @@ DIRECTION_VECTORS: dict[Direction, Coord] = {
 }
 
 
-class Node(NamedTuple):
+class Node:
     x: int
     y: int
     entity: Entity | None
 
-    neighbor_n: Node | None
-    neighbor_e: Node | None
-    neighbor_s: Node | None
-    neighbor_w: Node | None
+    parent: Node | None = None
+    children: dict[Direction, Node] = field(default_factory=dict)
 
     @property
     def coord(self) -> Coord:
         return (self.x, self.y)
 
-    def update_neighbor(self, direction: Direction, node: Node) -> Node:
-        return Node(
-            x=self.x,
-            y=self.y,
-            entity=self.entity,
-            neighbor_n=(node if direction == Direction.NORTH else None),
-            neighbor_e=(node if direction == Direction.EAST else None),
-            neighbor_s=(node if direction == Direction.SOUTH else None),
-            neighbor_w=(node if direction == Direction.WEST else None),
-        )
+    def __init__(
+        self,
+        x: int,
+        y: int,
+        entity: Entity | None,
+        parent: Node | None = None,
+        children: dict[Direction, Node] | None = None,
+    ):
+        self.x = x
+        self.y = y
+        self.entity = entity
+        self.parent = parent
+        self.children = children or {}
+
+    def __hash__(self) -> int:
+        return hash((self.x, self.y, self.entity))
+
+    def __eq__(self, other: Any) -> bool:
+        if not isinstance(other, Node):
+            return False
+        return all([self.x == other.x, self.y == other.y, self.entity == other.entity])
 
 
 class Edge(NamedTuple):
