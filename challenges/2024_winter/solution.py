@@ -433,7 +433,7 @@ class Node:
     entity: Entity | None
 
     parent: Node | None = None
-    edges: set[Edge] = field(default_factory=set)
+    children: set[Node] = field(default_factory=set)
 
     @property
     def coord(self) -> Coord:
@@ -445,17 +445,13 @@ class Node:
         y: int,
         entity: Entity | None,
         parent: Node | None = None,
-        edges: set[Edge] | None = None,
+        children: set[Node] | None = None,
     ):
         self.x = x
         self.y = y
         self.entity = entity
         self.parent = parent
-        self.edges = edges or set()
-
-    def add_child(self, child: Node, cost: Cost, fitness: Fitness) -> None:
-        child.parent = self
-        self.edges.add(Edge(source=self, target=child, cost=cost, fitness=fitness))
+        self.children = children or set()
 
     def __hash__(self) -> int:
         return hash((self.x, self.y, self.entity))
