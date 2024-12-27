@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import sys
+from collections import deque
 from enum import Enum
 from typing import Any, NamedTuple
 
@@ -22,9 +23,60 @@ class Game:
         opponent: ContestantState,
         entities: dict[Coord, Entity],
     ) -> None:
-        """Step 1: BFS graph from root"""
+        debug("Updating...")
 
-        debug(player.root)
+        """Step 1: BFS graph from root"""
+        graph: dict[Coord, Node] = {}
+        unvisited_coords: deque[Coord] = deque()
+        visited_coords: set[Coord] = set()
+
+        # initialize with root
+        root_node = Node(
+            x=player.root.x,
+            y=player.root.y,
+            entity=player.root,
+            neighbor_n=None,
+            neighbor_e=None,
+            neighbor_s=None,
+            neighbor_w=None,
+        )
+        graph[player.root.coord] = root_node
+        unvisited_coords.append(player.root.coord)
+
+        # Iterate through all neighbors
+        while coord := unvisited_coords.popleft():
+            if coord in visited_coords:
+                continue
+            visited_coords.add(coord)
+
+            node = graph.get(coord)
+            if not node:
+                continue
+
+            for direction, (i, j) in DIRECTION_VECTORS.items():
+                nx, ny = coord[0] + i, coord[1] + j
+                entity = entities.get((nx, ny))
+                if entity and entity.kind == EntityKind.WALL:
+                    continue
+
+                neighbor_dir = direction.reverse()
+                neighbor_node = Node(
+                    x=nx,
+                    y=ny,
+                    entity=entity,
+                    neighbor_n=(node if neighbor_dir == Direction.NORTH else None),
+                    neighbor_e=(node if neighbor_dir == Direction.EAST else None),
+                    neighbor_s=(node if neighbor_dir == Direction.SOUTH else None),
+                    neighbor_w=(node if neighbor_dir == Direction.WEST else None),
+                )
+
+                node = node.update_neighbor(direction, neighbor_node)
+
+                graph[(nx, ny)] = neighbor_node
+                unvisited_coords.append((nx, ny))
+
+        for coord, node in graph.items():
+            debug(f"Node: {coord} - {node}")
 
         # Organize map as a graph
         # # Game state is updated before update every turn
@@ -148,7 +200,7 @@ class Game:
 
     @classmethod
     def from_input(cls) -> Game:
-        width, height = [int(i) for i in input().split()]
+        width, height = [int(i) for i in read_input().split()]
         return Game(width=width, height=height)
 
     """ Helper methods """
@@ -159,7 +211,7 @@ class Game:
         tmp_entities: dict[
             int, tuple[Entity, int | None, int | None]
         ] = {}  # uid: (entity, parent_uid, root_uid)
-        for _ in range(int(input())):
+        for idx in range(int(read_input())):
             (
                 _x,
                 _y,
@@ -169,11 +221,12 @@ class Game:
                 _dir,
                 _parent_uid,
                 _root_uid,
-            ) = input().strip().split()
+            ) = read_input().strip().split()
 
-            tmp_entities[int(_uid)] = (
+            _tmp_uid = int(_uid) if int(_uid) else (-idx)
+            tmp_entities[_tmp_uid] = (
                 Entity(
-                    uid=int(_uid),
+                    uid=_tmp_uid,
                     x=int(_x),
                     y=int(_y),
                     kind=EntityKind(_kind),
@@ -195,10 +248,12 @@ class Game:
                 entity = entity.update_parent(tmp_entities[parent_uid][0])
             if root_uid:
                 entity = entity.update_root(tmp_entities[root_uid][0])
+
+            entities[entity.coord] = entity
             if entity.kind == EntityKind.ROOT and entity.owner:
                 roots[entity.owner] = entity
 
-        my_a, my_b, my_c, my_d = [int(i) for i in input().split()]
+        my_a, my_b, my_c, my_d = [int(i) for i in read_input().split()]
         player_state = ContestantState(
             root=roots[Contestant.PLAYER],
             protein_a=my_a,
@@ -207,7 +262,7 @@ class Game:
             protein_d=my_d,
         )
 
-        opp_a, opp_b, opp_c, opp_d = [int(i) for i in input().split()]
+        opp_a, opp_b, opp_c, opp_d = [int(i) for i in read_input().split()]
         opponent_state = ContestantState(
             root=roots[Contestant.OPPONENT],
             protein_a=opp_a,
@@ -216,7 +271,7 @@ class Game:
             protein_d=opp_d,
         )
 
-        required_actions_count = int(input())
+        required_actions_count = int(read_input())
 
         return GameState(
             player=player_state,
@@ -273,6 +328,10 @@ class Entity(NamedTuple):
     direction: Direction
     parent: Entity | None
     root: Entity | None
+
+    @property
+    def coord(self) -> Coord:
+        return (self.x, self.y)
 
     """ factory methods """
 
@@ -349,15 +408,34 @@ class Direction(Enum):
         return Direction.NONE
 
 
+DIRECTION_VECTORS: dict[Direction, Coord] = {
+    Direction.NORTH: (0, -1),
+    Direction.SOUTH: (0, 1),
+    Direction.EAST: (1, 0),
+    Direction.WEST: (-1, 0),
+}
+
+
 class Node(NamedTuple):
     x: int
     y: int
     entity: Entity | None
 
-    meighbor_n: Node | None
+    neighbor_n: Node | None
     neighbor_e: Node | None
     neighbor_s: Node | None
     neighbor_w: Node | None
+
+    def update_neighbor(self, direction: Direction, node: Node) -> Node:
+        return Node(
+            x=self.x,
+            y=self.y,
+            entity=self.entity,
+            neighbor_n=(node if direction == Direction.NORTH else None),
+            neighbor_e=(node if direction == Direction.EAST else None),
+            neighbor_s=(node if direction == Direction.SOUTH else None),
+            neighbor_w=(node if direction == Direction.WEST else None),
+        )
 
 
 class Edge(NamedTuple):
@@ -392,6 +470,12 @@ def Grow(
 
 def Wait() -> GameOutput:
     return GameOutput(command=GameCommand.WAIT, params=[])
+
+
+def read_input() -> str:
+    _input = input()
+    # debug(_input)
+    return _input
 
 
 def debug(*args: Any, **kwargs: Any) -> None:
