@@ -20,18 +20,11 @@ class Game:
         self,
         player: ContestantState,
         opponent: ContestantState,
-        entities: list[Entity],
+        entities: dict[Coord, Entity],
     ) -> None:
-        # Step 1: Cache all entities by Coord, and track organisms
-        entities_by_coord: dict[Coord, Entity] = {}
-        organisms: dict[Contestant, Entity] = {}
-        for entity in entities:
-            # Cache entities by Coord
-            entities_by_coord[(entity.x, entity.y)] = entity
+        """Step 1: BFS graph from root"""
 
-            # Track the top-level organisms
-            if entity.kind == EntityKind.ROOT and entity.owner:
-                organisms[entity.owner] = entity
+        debug(player.root)
 
         # Organize map as a graph
         # # Game state is updated before update every turn
@@ -163,42 +156,64 @@ class Game:
     @staticmethod
     def read_game_state() -> GameState:
         # Read entities and cache by uid without refrence to root or parent
-        entities: list[Entity] = []
+        tmp_entities: dict[
+            int, tuple[Entity, int | None, int | None]
+        ] = {}  # uid: (entity, parent_uid, root_uid)
         for _ in range(int(input())):
             (
                 _x,
                 _y,
                 _kind,
                 _owner,
-                _organ_id,
-                _organ_dir,
-                _organ_parent_id,
-                _organ_root_id,
+                _uid,
+                _dir,
+                _parent_uid,
+                _root_uid,
             ) = input().strip().split()
 
-            entities.append(
+            tmp_entities[int(_uid)] = (
                 Entity(
-                    uid=int(_organ_id),
+                    uid=int(_uid),
                     x=int(_x),
                     y=int(_y),
                     kind=EntityKind(_kind),
                     owner=None if _owner == "-1" else Contestant(_owner),
-                    direction=Direction(_organ_dir),
-                    root_uid=(None if _organ_root_id == "-1" else int(_organ_root_id)),
-                    parent_uid=(
-                        None if _organ_parent_id == "-1" else int(_organ_parent_id)
-                    ),
-                )
+                    direction=Direction(_dir),
+                    root=None,
+                    parent=None,
+                ),
+                None if int(_parent_uid) == -1 else int(_parent_uid),
+                None if int(_root_uid) == -1 else int(_root_uid),
             )
+
+        # Process entities
+        entities: dict[Coord, Entity] = {}
+        roots: dict[Contestant, Entity] = {}
+
+        for entity, parent_uid, root_uid in tmp_entities.values():
+            if parent_uid:
+                entity = entity.update_parent(tmp_entities[parent_uid][0])
+            if root_uid:
+                entity = entity.update_root(tmp_entities[root_uid][0])
+            if entity.kind == EntityKind.ROOT and entity.owner:
+                roots[entity.owner] = entity
 
         my_a, my_b, my_c, my_d = [int(i) for i in input().split()]
         player_state = ContestantState(
-            protein_a=my_a, protein_b=my_b, protein_c=my_c, protein_d=my_d
+            root=roots[Contestant.PLAYER],
+            protein_a=my_a,
+            protein_b=my_b,
+            protein_c=my_c,
+            protein_d=my_d,
         )
 
         opp_a, opp_b, opp_c, opp_d = [int(i) for i in input().split()]
         opponent_state = ContestantState(
-            protein_a=opp_a, protein_b=opp_b, protein_c=opp_c, protein_d=opp_d
+            root=roots[Contestant.OPPONENT],
+            protein_a=opp_a,
+            protein_b=opp_b,
+            protein_c=opp_c,
+            protein_d=opp_d,
         )
 
         required_actions_count = int(input())
@@ -237,11 +252,12 @@ class GameCommand(Enum):
 class GameState(NamedTuple):
     player: ContestantState
     opponent: ContestantState
-    entities: list[Entity]
+    entities: dict[Coord, Entity]
     actions: int
 
 
 class ContestantState(NamedTuple):
+    root: Entity
     protein_a: int
     protein_b: int
     protein_c: int
@@ -255,8 +271,8 @@ class Entity(NamedTuple):
     kind: EntityKind
     owner: Contestant | None
     direction: Direction
-    parent_uid: int | None
-    root_uid: int | None
+    parent: Entity | None
+    root: Entity | None
 
     """ factory methods """
 
