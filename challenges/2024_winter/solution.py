@@ -392,6 +392,9 @@ class Node:
         self.children = children or set()
         self.features = features or {}
 
+    def __repr__(self) -> str:
+        return f"<{self.coord} - {self.entity}>"
+
     def __hash__(self) -> int:
         return hash((self.x, self.y, self.entity))
 
@@ -460,11 +463,25 @@ class Strategy:
         )
 
 
-class Cost(NamedTuple):
+class Cost:
     a: int
     b: int
     c: int
     d: int
+
+    def __init__(self, a: int = 0, b: int = 0, c: int = 0, d: int = 0) -> None:
+        self.a = a
+        self.b = b
+        self.c = c
+        self.d = d
+
+    def __add__(self, other: Cost) -> Cost:
+        return Cost(
+            a=self.a + other.a,
+            b=self.b + other.b,
+            c=self.c + other.c,
+            d=self.d + other.d,
+        )
 
     @classmethod
     def for_entity_kind(cls, kind: EntityKind) -> Cost:
@@ -477,8 +494,14 @@ class Cost(NamedTuple):
         return cls(a=0, b=0, c=0, d=0)
 
 
-class Fitness(NamedTuple):
+class Fitness:
     score: int
+
+    def __init__(self, score: int = 0) -> None:
+        self.score = score
+
+    def __add__(self, other: Fitness) -> Fitness:
+        return Fitness(score=self.score + other.score)
 
     @classmethod
     def for_entity_kind(cls, kind: EntityKind) -> Fitness:
