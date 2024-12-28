@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import sys
 from collections import deque
-from dataclasses import field
 from enum import Enum
 from typing import Any
 from typing import NamedTuple
@@ -368,9 +367,11 @@ class Node:
     y: int
     entity: Entity | None
 
-    parent: Node | None = None
-    children: set[Node] = field(default_factory=set)
-    features: dict[Direction, Node | None] = field(default_factory=dict)
+    parent: Node | None
+    children: set[Node]
+    features: dict[Direction, Node | None]
+
+    tentative: bool
 
     @property
     def coord(self) -> Coord:
@@ -384,6 +385,7 @@ class Node:
         parent: Node | None = None,
         children: set[Node] | None = None,
         features: dict[Direction, Node | None] | None = None,
+        tenative: bool = False,
     ):
         self.x = x
         self.y = y
@@ -391,6 +393,7 @@ class Node:
         self.parent = parent
         self.children = children or set()
         self.features = features or {}
+        self.tentative = tenative
 
     def __repr__(self) -> str:
         return f"<{self.coord} - {self.entity}>"
