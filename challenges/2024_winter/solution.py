@@ -7,6 +7,8 @@ from enum import Enum
 from typing import Any
 from typing import NamedTuple
 
+CAPTURE_INPUTS = False
+
 
 class Game:
     width: int
@@ -25,152 +27,86 @@ class Game:
         opponent: ContestantState,
         entities: dict[Coord, Entity],
     ) -> None:
-        print(player)
-        print(opponent)
-        print(entities)
-
-        """Step 1: BFS graph from root"""
-        graph: dict[Coord, Node] = {}
-        unvisited_coords: deque[Coord] = deque()
+        """Step 1: build graph from the player root & capture features & possible strategies"""
+        nodes: dict[Coord, Node] = {
+            # Initialize with the root node
+            player.root.coord: Node(
+                x=player.root.x, y=player.root.y, entity=player.root
+            )
+        }
+        features: dict[Coord, Node] = {}
+        unvisited_coords: deque[Coord] = deque([player.root.coord])
         visited_coords: set[Coord] = set()
 
-        # initialize with root
-        root_node = Node(
-            x=player.root.x,
-            y=player.root.y,
-            entity=player.root,
-            neighbor_n=None,
-            neighbor_e=None,
-            neighbor_s=None,
-            neighbor_w=None,
-        )
-        graph[player.root.coord] = root_node
-        unvisited_coords.append(player.root.coord)
-
-        # Iterate through all neighbors
         while unvisited_coords:
             coord = unvisited_coords.popleft()
-            debug(f"Visiting {coord}")
-
             if coord in visited_coords:
-                debug(" > Already visited")
                 continue
-            visited_coords.add(coord)
 
-            node = graph.get(coord)
-            if not node:
-                continue
+            x, y = coord
+            node = nodes[coord]
+
+            skip_children_and_features = any(
+                [
+                    node.entity and node.entity.owner == Contestant.OPPONENT,
+                    node.entity and node.entity.kind in EntityKind.PROTEINS,
+                ]
+            )
 
             for direction, (i, j) in DIRECTION_VECTORS.items():
-                nx, ny = coord[0] + i, coord[1] + j
-                entity = entities.get((nx, ny))
-                if entity and entity.kind == EntityKind.WALL:
+                c_x, c_y = x + i, y + j
+                c_coord = (c_x, c_y)
+                c_entity = entities.get(c_coord)
+
+                if any(
+                    (
+                        c_x < 0 or c_x >= self.width,
+                        c_y < 0 or c_y >= self.height,
+                        c_entity and c_entity.kind == EntityKind.WALL,
+                    )
+                ):
                     continue
 
-                debug(" > Neighbour:", nx, ny)
+                if c_coord not in nodes and not skip_children_and_features:
+                    c_node = Node(x=c_x, y=c_y, entity=c_entity, parent=node)
+                    nodes[c_coord] = c_node
+                    unvisited_coords.append(c_coord)
 
-                neighbor_dir = direction.reverse()
-                neighbor_node = Node(
-                    x=nx,
-                    y=ny,
-                    entity=entity,
-                    neighbor_n=(node if neighbor_dir == Direction.NORTH else None),
-                    neighbor_e=(node if neighbor_dir == Direction.EAST else None),
-                    neighbor_s=(node if neighbor_dir == Direction.SOUTH else None),
-                    neighbor_w=(node if neighbor_dir == Direction.WEST else None),
-                )
-                graph[(nx, ny)] = neighbor_node
+                    if True and any(
+                        [
+                            # The node is empty
+                            not c_entity,
+                            # ... or the node is a player organism
+                            c_entity
+                            and c_entity.kind in EntityKind.ORGANISMS
+                            and c_entity
+                            and c_entity.owner
+                            and c_entity.owner == Contestant.PLAYER,
+                        ]
+                    ):
+                        node.children.add(c_node)
 
-                node = node.update_neighbor(direction, neighbor_node)
-                debug(" > Updated node:", node)
+                    if any(
+                        [
+                            # The feature is a protein
+                            c_entity and c_entity.kind in EntityKind.PROTEINS,
+                            # ... or the feature is an opponent organism
+                            c_entity
+                            and c_entity.kind in EntityKind.ORGANISMS
+                            and c_entity.owner
+                            and c_entity.owner == Contestant.OPPONENT,
+                        ]
+                    ):
+                        node.features[direction] = c_node
+                        features[coord] = c_node
 
-                unvisited_coords.append((nx, ny))
+            visited_coords.add(coord)
 
-        for coord, node in graph.items():
-            debug(f"Node: {coord} - {node}")
+        debug("Features:")
+        for coord, node in features.items():
+            debug(f"{coord}: {node} ({node.entity.kind if node.entity else ''})")
 
-        # Organize map as a graph
-        # # Game state is updated before update every turn
-        # assert self.state is not None
-
-        # # Cache all entities and special entities such as organism and walls
-        # entity_map: dict[tuple[int, int], Entity] = {}
-        # organism: dict[tuple[int, int], Entity] = {}
-        # walls: dict[tuple[int, int], Entity] = {}
-        # proteins: dict[tuple[int, int], Entity] = {}
-        # for entity in entities:
-        #     coord = (entity.x, entity.y)
-        #     entity_map[coord] = entity
-        #     if (
-        #         entity.kind in EntityKind.ORGANISMS
-        #         and entity.owner == Contestant.PLAYER
-        #     ):
-        #         organism[coord] = entity
-        #     if entity.kind == EntityKind.WALL:
-        #         walls[coord] = entity
-        #     if entity.kind in EntityKind.PROTEINS:
-        #         proteins[coord] = entity
-
-        # # Groom through proteins and find available points of entry for harvesters
-        # protein_ports: list[
-        #     tuple[tuple[int, int], Direction, Entity, int]
-        # ] = []  # coord, direction, closest organ, and distance
-        # # Only do maths if we can purchase port
-        # if self.state.player.protein_c >= 1 and self.state.player.protein_d >= 1:
-        #     for coord, entity in proteins.items():
-        #         for neighbor, direction in neighborhood(
-        #             *coord, width=self.width, height=self.height
-        #         ):
-        #             if neighbor not in entity_map:
-        #                 # Let's calculate the distance and closest organ
-        #                 closest_organ: Entity | None = None
-        #                 closest_distance: int | None = None
-        #                 for organ in organism.values():
-        #                     o_distance = taxi_distance(
-        #                         organ.x, organ.y, neighbor[0], neighbor[1]
-        #                     )
-        #                     if (
-        #                         closest_distance is None
-        #                         or o_distance < closest_distance
-        #                     ):
-        #                         closest_distance = o_distance
-        #                         closest_organ = organ
-
-        #                 # We know *something* is closest because we have atleast one organ
-        #                 assert closest_organ is not None
-        #                 assert closest_distance is not None
-
-        #                 protein_ports.append(
-        #                     (
-        #                         neighbor,
-        #                         direction.reverse(),  # Use the direction to point Harvster in
-        #                         closest_organ,
-        #                         closest_distance,
-        #                     )
-        #                 )
-
-        #     protein_ports = sorted(protein_ports, key=lambda p: p[-1])
-        #     coord, direction, entity, distance = protein_ports.pop(0)
-        #     if distance == 1:
-        #         return [
-        #             Grow(EntityKind.HARVESTER, coord[0], coord[1], direction, entity)
-        #         ]
-        #     else:
-        #         return [
-        #             Grow(EntityKind.BASIC, coord[0], coord[1], Direction.NORTH, entity)
-        #         ]
-
-        # debug("No available resources for Harvesters- growing in best direction")
-        # for organ in organism.values():
-        #     for coord, _ in neighborhood(
-        #         x=organ.x, y=organ.y, width=self.width, height=self.height
-        #     ):
-        #         if coord not in entity_map:
-        #             return [
-        #                 Grow(
-        #                     EntityKind.BASIC, coord[0], coord[1], Direction.NORTH, organ
-        #                 )
-        #             ]
+        """ Step 2: define paths from all features to the parent node, along with strategies"""
 
     def output(self, output: GameOutput) -> None:
         self.outputs.append(output)
@@ -569,7 +505,8 @@ def Wait() -> GameOutput:
 
 def read_input() -> str:
     _input = input()
-    # debug(_input)
+    if CAPTURE_INPUTS:
+        debug(_input)
     return _input
 
 
