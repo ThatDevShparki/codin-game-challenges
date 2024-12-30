@@ -371,8 +371,6 @@ class Node:
     children: set[Node]
     features: dict[Direction, Node | None]
 
-    tentative: bool
-
     @property
     def coord(self) -> Coord:
         return (self.x, self.y)
@@ -385,7 +383,6 @@ class Node:
         parent: Node | None = None,
         children: set[Node] | None = None,
         features: dict[Direction, Node | None] | None = None,
-        tenative: bool = False,
     ):
         self.x = x
         self.y = y
@@ -393,7 +390,6 @@ class Node:
         self.parent = parent
         self.children = children or set()
         self.features = features or {}
-        self.tentative = tenative
 
     def __repr__(self) -> str:
         return f"<{self.coord} - {self.entity}>"
@@ -420,16 +416,16 @@ class Strategy:
         source: Node,
         target: Node,
         kind: EntityKind,
-        cost: Cost,
-        fitness: Fitness,
+        cost: Cost | None = None,
+        fitness: Fitness | None = None,
         direction: Direction = Direction.NONE,
     ) -> None:
         self.source = source
         self.target = target
         self.kind = kind
+        self.cost = cost or Cost()
+        self.fitness = fitness or Fitness()
         self.direction = direction
-        self.cost = cost
-        self.fitness = fitness
 
     def __hash__(self) -> int:
         return hash((self.source, self.target, self.kind, self.cost, self.fitness))
@@ -542,6 +538,15 @@ def debug(*args: Any, **kwargs: Any) -> None:
 
 def taxi_distance(p1: Coord, p2: Coord) -> int:
     return abs(p2[0] - p1[0]) + abs(p2[1] - p1[1])
+
+
+def direction_to(source: Coord, target: Coord) -> Direction:
+    x1, y1 = source
+    x2, y2 = target
+
+    if x1 == x2:
+        return Direction.SOUTH if y2 > y1 else Direction.NORTH
+    return Direction.EAST if x2 > x1 else Direction.WEST
 
 
 """ Game loop """
